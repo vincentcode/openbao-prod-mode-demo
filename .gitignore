@@ -1,0 +1,28 @@
+# Root token + unseal keys -- exactly as sensitive as a root password,
+# never commit this. See scripts/init-and-unseal.sh's own docstring.
+# Trailing * also catches hand-made copies: .bao-init.json.bak, .bao-init-backup.json, ...
+.bao-init*
+
+# Where enable-transit.sh tells you to put role_id / secret_id / app config
+.env
+.env.*
+!.env.example
+
+# Local compose overrides tend to accumulate tokens and passwords
+docker-compose.override.y*ml
+
+# TLS material -- the README's "turn on TLS later" step will produce these
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# Audit log records request/response metadata; keep it out of the repo
+# if the volume is ever swapped for a bind mount
+audit.log
+*.log
+
+# Claude Code local config and instructions
+.claude/
+CLAUDE.md

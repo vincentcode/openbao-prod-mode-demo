@@ -1,0 +1,29 @@
+services:
+  openbao:
+    image: openbao/openbao:2.6.2
+    container_name: openbao_demo
+    command: ["server"]
+    environment:
+      # The bao CLI defaults to https://127.0.0.1:8200 -- without this,
+      # every `docker exec ... bao ...` call (including this compose
+      # file's own healthcheck-adjacent tooling) fails against our
+      # tls_disable=true listener with "server gave HTTP response to
+      # HTTPS client".
+      BAO_ADDR: "http://127.0.0.1:8200"
+    ports:
+      - "8200:8200"
+    volumes:
+      - ./config.hcl:/openbao/config/config.hcl:ro
+      - openbao_file:/openbao/file
+      - openbao_logs:/openbao/logs
+    healthcheck:
+      # 501/503 (sealed/uninitialized) still means the server is up and
+      # answering -- only a connection failure should count as unhealthy.
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  openbao_file:
+  openbao_logs:

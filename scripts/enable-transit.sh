@@ -5,14 +5,27 @@
 # init-and-unseal.sh's own note). Safe to re-run: every step is
 # idempotent (enable/create calls are no-ops if already done, `-force`
 # isn't needed anywhere here).
+#
+# Usage: ./scripts/enable-transit.sh [transit_key] [policy_name] [role_name]
+#   transit_key  -- Transit key name; this app's own encrypt/decrypt key
+#   policy_name  -- policy granting encrypt/decrypt on that one key only
+#   role_name    -- AppRole role name; this app's own identity
+# All three default to the lab's "demo-app"/"demo-transit" names if
+# omitted. To onboard a second, real application, run this again with
+# its own names, e.g.:
+#   ./scripts/enable-transit.sh billing-svc transit-billing-svc billing-svc
+# That gives it its own Transit key, policy and AppRole role -- so its
+# credentials can never decrypt another app's data, and revoking one
+# app never affects another. See TLS-SETUP.md and the README for why
+# that isolation matters.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 CONTAINER=openbao_demo
 KEYS_FILE=.bao-init.json
-TRANSIT_KEY=demo-app
-POLICY_NAME=demo-transit
-ROLE_NAME=demo-app
+TRANSIT_KEY="${1:-demo-app}"
+POLICY_NAME="${2:-demo-transit}"
+ROLE_NAME="${3:-demo-app}"
 
 if [ ! -f "$KEYS_FILE" ]; then
   echo "error: $KEYS_FILE not found -- run init-and-unseal.sh first" >&2
@@ -70,7 +83,8 @@ SECRET_ID=$(bao write -f -field=secret_id "auth/approle/role/$ROLE_NAME/secret-i
 cat <<EOF
 
 Done. Put these in your app's env (never in a repo):
-  OPENBAO_ADDR=http://localhost:8200
+  OPENBAO_ADDR=https://xxx:8200
+  OPENBAO_CACERT=/path/to/ca.crt   # only if xxx's cert is from a private/internal CA -- see TLS-SETUP.md
   OPENBAO_ROLE_ID=$ROLE_ID
   OPENBAO_SECRET_ID=$SECRET_ID
   OPENBAO_TRANSIT_KEY=$TRANSIT_KEY

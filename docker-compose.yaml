@@ -4,22 +4,32 @@ services:
     container_name: openbao_demo
     command: ["server"]
     environment:
-      # The bao CLI defaults to https://127.0.0.1:8200 -- without this,
-      # every `docker exec ... bao ...` call (including this compose
-      # file's own healthcheck-adjacent tooling) fails against our
-      # tls_disable=true listener with "server gave HTTP response to
-      # HTTPS client".
-      BAO_ADDR: "http://127.0.0.1:8200"
+      # Our cert is issued for xxx, not 127.0.0.1 -- BAO_ADDR has to use
+      # the same name so the bao CLI (docker exec calls, healthcheck)
+      # can verify it. extra_hosts below makes that name resolve back
+      # to this container.
+      BAO_ADDR: "https://xxx:8200"
+      # CA cert the bao CLI should trust when verifying the server cert.
+      # Only needed for a private/internal CA -- a publicly trusted CA
+      # is already in the container's system trust store, so this line
+      # and the ca.crt file/mount can be dropped in that case.
+      BAO_CACERT: "/openbao/tls/ca.crt"
     ports:
       - "8200:8200"
+    # Cert is issued for xxx -- point that name at the container itself
+    # so in-container `bao` calls connect by a name the cert is valid for.
+    extra_hosts:
+      - "xxx:127.0.0.1"
     volumes:
       - ./config.hcl:/openbao/config/config.hcl:ro
+      - ./certs:/openbao/tls:ro
       - openbao_file:/openbao/file
       - openbao_logs:/openbao/logs
     healthcheck:
-      # 501/503 (sealed/uninitialized) still means the server is up and
-      # answering -- only a connection failure should count as unhealthy.
-      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8200/v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200"]
+      # `bao status` exits 1 on a connection/TLS failure, 2 when sealed --
+      # sealed still means "up", so only exit code 1 counts as unhealthy.
+      # `$$` is compose's escape for a literal `$`.
+      test: ["CMD-SHELL", "bao status >/dev/null 2>&1; [ $$? -ne 1 ]"]
       interval: 5s
       timeout: 5s
       retries: 10

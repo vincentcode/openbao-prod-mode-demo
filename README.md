@@ -1,4 +1,4 @@
-# OpenBao, in prod mode, on your laptop
+# OpenBao, in prod mode
 
 A self-contained, runnable lab for actually understanding how OpenBao
 (the open-source Vault fork) works in production mode — not `-dev`
